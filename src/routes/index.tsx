@@ -22,6 +22,7 @@ import {
   formatTime,
   parseYouTubeId,
   phrasesFromText,
+  phrasesFromTimedText,
   scoreLabel,
   scoreSpeech,
   type Phrase,
@@ -133,7 +134,8 @@ function ShadowingApp() {
 
   function applyManual() {
     const duration = api()?.getDuration() ?? 0;
-    const built = phrasesFromText(manual, duration);
+    const timed = phrasesFromTimedText(manual);
+    const built = timed.length ? timed : phrasesFromText(manual, duration);
     if (!built.length) {
       setNotice("Cole ao menos uma frase.");
       return;
@@ -339,21 +341,25 @@ function ShadowingApp() {
             </div>
           </div>
 
-          {needManual ? (
-            <div className="panel flex flex-col gap-3 p-5">
-              <h2 className="text-lg font-semibold">Colar a transcrição</h2>
-              <Textarea
-                value={manual}
-                onChange={(e) => setManual(e.target.value)}
-                rows={5}
-                placeholder="Cole aqui o texto da fala do vídeo…"
-                className="bg-surface-2"
-              />
-              <Button onClick={applyManual} className="w-fit font-semibold">
-                Gerar frases
-              </Button>
-            </div>
-          ) : null}
+          <div className="panel flex flex-col gap-3 p-5">
+            <h2 className="text-lg font-semibold">
+              {needManual ? "Colar a transcrição" : "Usar sua própria transcrição"}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              No YouTube, abra “Mostrar transcrição”, copie e cole aqui. Se o texto vier com
+              tempos (0:12), as frases ficam sincronizadas com o vídeo.
+            </p>
+            <Textarea
+              value={manual}
+              onChange={(e) => setManual(e.target.value)}
+              rows={5}
+              placeholder="0:03 Hello everyone, welcome back…"
+              className="bg-surface-2"
+            />
+            <Button onClick={applyManual} className="w-fit font-semibold">
+              Gerar frases
+            </Button>
+          </div>
         </div>
 
         <div className="panel flex max-h-[36rem] flex-col p-4">
