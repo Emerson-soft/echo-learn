@@ -22,7 +22,7 @@ async function fetchCaptionTracks(videoId: string) {
   const match = html.match(/"captionTracks":(\[.*?\])/);
   if (!match) return [] as { baseUrl: string; languageCode: string; kind?: string }[];
   try {
-    return JSON.parse(match[1].replace(/\\u0026/g, "&")) as {
+    return JSON.parse((match[1] ?? "[]").replace(/\\u0026/g, "&")) as {
       baseUrl: string;
       languageCode: string;
       kind?: string;
@@ -42,6 +42,7 @@ export const getTranscript = createServerFn({ method: "POST" })
       tracks.find((t) => t.languageCode?.startsWith("en") && !t.kind) ??
       tracks.find((t) => t.languageCode?.startsWith("en")) ??
       tracks[0];
+    if (!preferred) return { phrases: [], language: null };
 
     const url = `${preferred.baseUrl}${preferred.baseUrl.includes("fmt=") ? "" : "&fmt=json3"}`;
     const capRes = await fetch(url, { headers: { "user-agent": UA } });

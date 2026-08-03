@@ -12,7 +12,7 @@ export function parseYouTubeId(input: string): string | null {
   try {
     const url = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
     if (url.hostname.includes("youtu.be")) {
-      const id = url.pathname.slice(1).split("/")[0];
+      const id = url.pathname.slice(1).split("/")[0] ?? "";
       return /^[\w-]{11}$/.test(id) ? id : null;
     }
     const v = url.searchParams.get("v");
@@ -20,7 +20,7 @@ export function parseYouTubeId(input: string): string | null {
     const parts = url.pathname.split("/").filter(Boolean);
     const marker = parts.findIndex((p) => ["embed", "shorts", "live"].includes(p));
     if (marker >= 0 && parts[marker + 1]) {
-      const id = parts[marker + 1];
+      const id = parts[marker + 1] ?? "";
       return /^[\w-]{11}$/.test(id) ? id : null;
     }
   } catch {
@@ -45,11 +45,11 @@ function wordDistance(a: string[], b: string[]): number {
     curr[0] = i;
     for (let j = 1; j <= b.length; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+      curr[j] = Math.min((prev[j] ?? 0) + 1, (curr[j - 1] ?? 0) + 1, (prev[j - 1] ?? 0) + cost);
     }
     for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
   }
-  return prev[b.length];
+  return prev[b.length] ?? 0;
 }
 
 export type ScoreResult = {
