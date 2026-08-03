@@ -136,3 +136,34 @@ export function phrasesFromText(text: string, totalSeconds: number): Phrase[] {
     text: t,
   }));
 }
+
+/**
+ * Parses a transcript copied from YouTube's "Show transcript" panel,
+ * where each line looks like "0:12 some spoken words".
+ */
+export function phrasesFromTimedText(text: string): Phrase[] {
+  const cues: { start: number; duration: number; text: string }[] = [];
+  const pattern = /(?:^|\s)((?:\d{1,2}:)?\d{1,2}:\d{2})\s+/g;
+  const marks: { start: number; at: number; end: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(text)) !== null) {
+    const stamp = m[1] ?? "";
+    const parts = stamp.split(":").map((n) => Number(n));
+    const seconds =
+      parts.length === 3
+        ? (parts[0] ?? 0) * 3600 + (parts[1] ?? 0) * 60 + (parts[2] ?? 0)
+        : (parts[0] ?? 0) * 60 + (parts[1] ?? 0);
+    marks.push({ start: seconds, at: m.index + m[0].length, end: 0 });
+  }
+  if (marks.length < 2) return [];
+  marks.forEach((mark, i) => {
+    const next = marks[i + 1];
+    const slice = text.slice(mark.at, next ? next.at - String(next.start).length - 6 : undefined);
+    cues.push({
+      start: mark.start,
+      duration: (next ? next.start : mark.start + 3) - mark.start,
+      text: slice.replace(/(?:^|\s)(?:\d{1,2}:)?\d{1,2}:\d{2}\s*$/, ""),
+    });
+  });
+  return buildPhrases(cues);
+}

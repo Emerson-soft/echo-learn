@@ -14,22 +14,67 @@ type Json3 = {
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36";
 
-async function fetchCaptionTracks(videoId: string) {
+type Track = { baseUrl: string; languageCode?: string; kind?: string };
+
+async function fromWatchPage(videoId: string): Promise<Track[]> {
   const res = await fetch(`https://www.youtube.com/watch?v=${videoId}&hl=en`, {
-    headers: { "user-agent": UA, "accept-language": "en-US,en;q=0.9" },
+    headers: {
+      "user-agent": UA,
+      "accept-language": "en-US,en;q=0.9",
+      cookie: "CONSENT=YES+cb; SOCS=CAI",
+    },
+    redirect: "follow",
   });
+  if (!res.ok) return [];
   const html = await res.text();
   const match = html.match(/"captionTracks":(\[.*?\])/);
-  if (!match) return [] as { baseUrl: string; languageCode: string; kind?: string }[];
+  if (!match) return [];
   try {
-    return JSON.parse((match[1] ?? "[]").replace(/\\u0026/g, "&")) as {
-      baseUrl: string;
-      languageCode: string;
-      kind?: string;
-    }[];
+    return JSON.parse((match[1] ?? "[]").replace(/\\u0026/g, "&")) as Track[];
   } catch {
     return [];
   }
+}
+
+async function fromInnertube(videoId: string, client: Record<string, unknown>): Promise<Track[]> {
+  const res = await fetch("https://www.youtube.com/youtubei/v1/player", {
+    method: "POST",
+    headers: { "content-type": "application/json", "user-agent": UA },
+    body: JSON.stringify({ videoId, context: { client } }),
+  });
+  if (!res.ok) return [];
+  const json = (await res.json().catch(() => null)) as {
+    captions?: { playerCaptionsTracklistRenderer?: { captionTracks?: Track[] } };
+  } | null;
+  return json?.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? [];
+}
+
+async function fetchCaptionTracks(videoId: string): Promise<Track[]> {
+  const strategies = [
+    () => fromWatchPage(videoId),
+    () =>
+      fromInnertube(videoId, {
+        clientName: "ANDROID",
+        clientVersion: "19.09.37",
+        androidSdkVersion: 30,
+        hl: "en",
+      }),
+    () =>
+      fromInnertube(videoId, {
+        clientName: "TVHTML5_SIMPLY_EMBEDDED_PLAYER",
+        clientVersion: "2.0",
+        hl: "en",
+      }),
+  ];
+  for (const run of strategies) {
+    try {
+      const tracks = await run();
+      if (tracks.length) return tracks;
+    } catch {
+      // try the next strategy
+    }
+  }
+  return [];
 }
 
 export const getTranscript = createServerFn({ method: "POST" })
