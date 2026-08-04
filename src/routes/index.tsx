@@ -51,6 +51,8 @@ export const Route = createFileRoute("/")({
 });
 
 const RATES = [0.5, 0.75, 1];
+/** Extra seconds kept after the phrase end so the last words are never cut. */
+const TAIL_PAD = 0.7;
 
 function ShadowingApp() {
   const loadTranscript = useServerFn(getTranscript);
@@ -76,18 +78,19 @@ function ShadowingApp() {
   // Keeps the video inside the boundaries of the selected phrase.
   useEffect(() => {
     if (!ready || !phrase) return;
+    const limit = phrase.end + TAIL_PAD;
     const id = window.setInterval(() => {
       const player = api();
       if (!player) return;
       const t = player.getCurrentTime();
-      if (t >= phrase.end) {
+      if (t >= limit) {
         if (loop) {
           player.seekTo(phrase.start, true);
         } else {
           player.pauseVideo();
         }
       }
-    }, 200);
+    }, 100);
     return () => window.clearInterval(id);
   }, [api, ready, phrase, loop]);
 
