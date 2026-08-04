@@ -21,6 +21,11 @@ function getCtor(): (new () => RecognitionLike) | null {
     | null;
 }
 
+/** Silence (ms) after the last recognized word before we finish automatically. */
+const SILENCE_MS = 3500;
+/** Hard limit (ms) for a single capture session. */
+const MAX_MS = 30000;
+
 export function useSpeechRecognition(lang = "en-US") {
   const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
@@ -29,11 +34,35 @@ export function useSpeechRecognition(lang = "en-US") {
   const recRef = useRef<RecognitionLike | null>(null);
   const finalRef = useRef("");
   const doneRef = useRef<((text: string) => void) | null>(null);
+  const activeRef = useRef(false);
+  const silenceRef = useRef<number | null>(null);
+  const maxRef = useRef<number | null>(null);
+
+  const clearTimers = useCallback(() => {
+    if (silenceRef.current) window.clearTimeout(silenceRef.current);
+    if (maxRef.current) window.clearTimeout(maxRef.current);
+    silenceRef.current = null;
+    maxRef.current = null;
+  }, []);
 
   useEffect(() => {
     setSupported(Boolean(getCtor()));
-    return () => recRef.current?.abort();
-  }, []);
+    return () => {
+      activeRef.current = false;
+      clearTimers();
+      recRef.current?.abort();
+    };
+  }, [clearTimers]);
+
+  const finish = useCallback(() => {
+    if (!activeRef.current) return;
+    activeRef.current = false;
+    clearTimers();
+    recRef.current?.stop();
+    setListening(false);
+    doneRef.current?.(finalRef.current);
+    doneRef.current = null;
+  }, [clearTimers]);
 
   const start = useCallback(
     (onDone?: (text: string) => void) => {
@@ -42,15 +71,25 @@ export function useSpeechRecognition(lang = "en-US") {
         setError("Seu navegador não suporta reconhecimento de voz. Use o Chrome.");
         return;
       }
+      activeRef.current = false;
+      clearTimers();
       recRef.current?.abort();
       setError(null);
       setTranscript("");
       finalRef.current = "";
       doneRef.current = onDone ?? null;
+      activeRef.current = true;
+
+      const armSilence = () => {
+        if (silenceRef.current) window.clearTimeout(silenceRef.current);
+        silenceRef.current = window.setTimeout(finish, SILENCE_MS);
+      };
 
       const rec = new Ctor();
       rec.lang = lang;
-      rec.continuous = false;
+      // Continuous keeps the session open through natural pauses instead of
+      // cutting off after the first fragment of speech.
+      rec.continuous = true;
       rec.interimResults = true;
       rec.maxAlternatives = 1;
       rec.onresult = (event: unknown) => {
@@ -62,34 +101,51 @@ export function useSpeechRecognition(lang = "en-US") {
         }
         finalRef.current = text.trim();
         setTranscript(finalRef.current);
+        armSilence();
       };
       rec.onerror = (event: unknown) => {
         const code = (event as { error?: string }).error;
+        // Silence-related errors shouldn't kill the session: just restart.
+        if (code === "no-speech" || code === "aborted") return;
+        activeRef.current = false;
+        clearTimers();
         setError(
           code === "not-allowed"
             ? "Permissão do microfone negada."
-            : code === "no-speech"
-              ? "Não ouvi nada. Tente falar mais perto do microfone."
-              : "Erro ao capturar áudio.",
+            : "Erro ao capturar áudio.",
         );
         setListening(false);
       };
       rec.onend = () => {
-        setListening(false);
-        doneRef.current?.(finalRef.current);
+        // Chrome ends the session on its own; while the user is still
+        // recording we restart it so nothing gets clipped.
+        if (activeRef.current) {
+          try {
+            rec.start();
+            return;
+          } catch {
+            /* fall through to finishing */
+          }
+          activeRef.current = false;
+          clearTimers();
+          setListening(false);
+          doneRef.current?.(finalRef.current);
+          doneRef.current = null;
+        }
       };
       recRef.current = rec;
       try {
         rec.start();
         setListening(true);
+        armSilence();
+        maxRef.current = window.setTimeout(finish, MAX_MS);
       } catch {
+        activeRef.current = false;
         setError("Não foi possível iniciar a gravação.");
       }
     },
-    [lang],
+    [lang, clearTimers, finish],
   );
 
-  const stop = useCallback(() => recRef.current?.stop(), []);
-
-  return { supported, listening, transcript, error, start, stop };
+  return { supported, listening, transcript, error, start, stop: finish };
 }

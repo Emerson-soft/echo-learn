@@ -51,6 +51,8 @@ export const Route = createFileRoute("/")({
 });
 
 const RATES = [0.5, 0.75, 1];
+/** Extra seconds kept after the phrase end so the last words are never cut. */
+const TAIL_PAD = 0.7;
 
 function ShadowingApp() {
   const loadTranscript = useServerFn(getTranscript);
