@@ -80,8 +80,9 @@ function ShadowingApp() {
   const [needManual, setNeedManual] = useState(false);
   const [result, setResult] = useState<{ score: number; matched: boolean[] } | null>(null);
 
+  const [lang, setLang] = useState("en-US");
   const { containerRef, ready, api } = useYouTubePlayer(videoId);
-  const speech = useSpeechRecognition("en-US");
+  const speech = useSpeechRecognition(lang);
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const phrase = phrases[current] ?? null;
