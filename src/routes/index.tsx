@@ -51,6 +51,17 @@ export const Route = createFileRoute("/")({
 });
 
 const RATES = [0.5, 0.75, 1];
+const LANGUAGES = [
+  { code: "en-US", label: "Inglês" },
+  { code: "pt-BR", label: "Português" },
+  { code: "es-ES", label: "Espanhol" },
+  { code: "fr-FR", label: "Francês" },
+  { code: "de-DE", label: "Alemão" },
+  { code: "it-IT", label: "Italiano" },
+  { code: "ja-JP", label: "Japonês" },
+  { code: "ko-KR", label: "Coreano" },
+  { code: "zh-CN", label: "Chinês" },
+];
 /** Extra seconds kept after the phrase end so the last words are never cut. */
 const TAIL_PAD = 0.7;
 
