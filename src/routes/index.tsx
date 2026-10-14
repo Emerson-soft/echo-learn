@@ -317,6 +317,19 @@ function ShadowingApp() {
 
               <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-2 p-4">
                 <div className="flex flex-wrap items-center gap-3">
+                  <select
+                    value={lang}
+                    onChange={(e) => setLang(e.target.value)}
+                    disabled={speech.listening}
+                    aria-label="Idioma da fala"
+                    className="h-9 rounded-md border border-border bg-surface px-2 text-sm font-semibold text-foreground"
+                  >
+                    {LANGUAGES.map((l) => (
+                      <option key={l.code} value={l.code}>
+                        {l.label}
+                      </option>
+                    ))}
+                  </select>
                   <Button
                     onClick={toggleMic}
                     disabled={!phrase || !speech.supported}
